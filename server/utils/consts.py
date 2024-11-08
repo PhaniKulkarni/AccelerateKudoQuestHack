@@ -42,7 +42,7 @@ AGENT_FACTS = [
     },
     {
         "sample_query": "Names of your creators?",
-        "fact": "Dhrumil Patel, Samuel Miller, Naman Sonawane, Vaishnavi Kale and An Pham."
+        "fact": "Dhrumil Patel, Samuel Miller, Naman Sonawane, Phani Kulkarni and An Pham."
     },
     {
         "sample_query": "What is your purpose?",

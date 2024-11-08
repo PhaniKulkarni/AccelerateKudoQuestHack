@@ -50,7 +50,7 @@ from utils.consts import SYSTEM_MESSAGE
 
 """Step 2: Define the MentalHealthAIAgent class"""
 
-class MentalHealthAIAgent(AIAgent):
+class StudyBuddyAIAgent(AIAgent):
     """
     A class that captures the data and methods required for
     mental health applications.
@@ -296,7 +296,7 @@ class MentalHealthAIAgent(AIAgent):
         """
 
 
-        chat_id = MentalHealthAIAgent.get_chat_id(user_id)
+        chat_id = StudyBuddyAIAgent.get_chat_id(user_id)
 
        
         # TODO: throw error if user_id, chat_id is set to None.
@@ -429,7 +429,7 @@ class MentalHealthAIAgent(AIAgent):
             full_system_message = ''.join([system_message.content, introduction])
             system_message.content = full_system_message
 
-        chat_id = MentalHealthAIAgent.get_chat_id(user_id)
+        chat_id = StudyBuddyAIAgent.get_chat_id(user_id)
 
         response = self.run(
             message="",
