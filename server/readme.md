@@ -18,14 +18,14 @@ Before you begin, ensure you have the following installed on your machine:
 
 1. **Clone the repository**:
    ```
-   git clone https://github.com/dhrumilp12/GNEC-Hack.git
-   cd flask-backend
+   git clone https://github.com/dhrumilp12/.git
+   cd server
    ```
 
 2. **Create and activate a virtual environment (optional but recommended)**:
     ```
-    python3 -m venv venv
-    source venv/bin/activate  # On Windows use: venv\Scripts\Activate.ps1
+    python -m venv venv
+    source venv/bin/activate  # On Windows use: .\venv\Scripts\Activate.ps1
     ```
 
 3. **Configure environment variables**:
@@ -38,4 +38,9 @@ Before you begin, ensure you have the following installed on your machine:
     ```
     pip install -r requirements.txt
     ```
+
+5. **Run app.py**
+   ```
+   python app.py
+   ```
 
