@@ -1,6 +1,5 @@
 """This module defines the routes for user authentication and registration"""
 
-""" Step 1: Importing required libraries"""
 import logging
 from utils.extensions import oauth, mail
 from flask import Blueprint, request, jsonify, current_app, url_for, redirect, session
@@ -17,17 +16,13 @@ from secrets import token_urlsafe
 from flask_mail import Message
 from utils.reset_tokens import generate_reset_token, verify_reset_token
 
-"""Step 2: Configurations"""
+# Load environment variables from .env file
 load_dotenv()
 
-
-"""Step 3: Creating a blueprint for the auth routes"""
+# Create a blueprint for the auth routes
 auth_routes = Blueprint("auth", __name__)
 
-
-"""Step 4: Defining routes"""
-
-#Route for user registration
+# Route for user registration
 @auth_routes.post('/user/signup')
 def signup():
     try:
@@ -39,7 +34,7 @@ def signup():
 
         db_client = MongoDBClient.get_client()
         db = db_client[MongoDBClient.get_db_name()]
-        
+
         # Check if user already exists with the same username or email
         logging.info("Checking for existing users")
         existing_user = db['users'].find_one({"$or": [{"username": user.username}, {"email": user.email}]})
@@ -63,35 +58,27 @@ def signup():
         logging.error(f"Exception during registration: {str(e)}")
         return jsonify({"error": str(e)}), 400
 
-
-
-
-
-#Route for user login
+# Route for user login
 @auth_routes.post('/user/login')
 def login():
     try:
-        # Get the identifier and password from the request
         identifier = request.json.get('identifier', None)
         password = request.json.get('password', None)
         
         if not identifier or not password:
             return jsonify({"msg": "Missing identifier or password"}), 400
 
-        # Validate if identifier is an email
         try:
-            # Attempt to validate identifier as an email
             validate_email(identifier)
             is_email = True
         except EmailNotValidError:
             is_email = False
 
-        # Find user by email or username
         if is_email:
             user = UserModel.find_by_email(identifier)
         else:
             user = UserModel.find_by_username(identifier)
-        
+
         if user and check_password_hash(user.password, password):
             access_token = create_access_token(identity=str(user.id), expires_delta=timedelta(hours=72))
             return jsonify(access_token=access_token, userId=str(user.id)), 200
@@ -105,29 +92,20 @@ def login():
         logging.error(f"Login error: {str(e)}")
         return jsonify({"error": "An unexpected error occurred"}), 500
 
-
-
-
-
-#Route for user logout
+# Route for user logout
 @auth_routes.post('/user/logout')
 @jwt_required()
 def logout():
-    # JWT Revocation or Blacklisting could be implemented here if needed
     jwt_id = get_jwt_identity()
     logging.info(f"User {jwt_id} logged out successfully")
-
     return jsonify({"msg": "Logout successful"}), 200
-
-
-
 
 # Route to start Google OAuth
 @auth_routes.route('/auth/google')
 def google_login():
     redirect_uri = url_for('auth.google_callback', _external=True)
-    nonce = token_urlsafe(16)  # Generate a secure random nonce
-    session['oauth_nonce'] = nonce  # Store the nonce in the session
+    nonce = token_urlsafe(16)
+    session['oauth_nonce'] = nonce
     logging.info(f"Redirect URI: {redirect_uri}")
     return oauth.google.authorize_redirect(redirect_uri, nonce=nonce)
 
@@ -136,13 +114,12 @@ def google_login():
 def google_callback():
     try:
         token = oauth.google.authorize_access_token()
-        nonce = session.pop('oauth_nonce', None)  # Retrieve and remove the nonce from the session
+        nonce = session.pop('oauth_nonce', None)
 
         if not nonce:
             logging.error("Nonce not found in session")
             return jsonify({'error': 'Session expired or invalid'}), 400
-        
-        # Add claims_options to specify the expected issuer
+
         claims_options = {
             'iss': {
                 'values': ['https://accounts.google.com', 'accounts.google.com'],
@@ -163,17 +140,14 @@ def google_callback():
         if not email:
             return jsonify({'error': 'Failed to retrieve email from Google'}), 400
 
-        # Check if user already exists
         user = UserModel.find_by_email(email)
 
         if not user:
-            # Create a new user
             user_data = {
                 'username': email.split('@')[0],
                 'email': email,
                 'name': name,
                 'google_id': google_id,
-                # Add other fields if necessary
             }
             db_client = MongoDBClient.get_client()
             db = db_client[MongoDBClient.get_db_name()]
@@ -182,21 +156,87 @@ def google_callback():
         else:
             user_id = user.id
 
-        # Generate JWT token
         access_token = create_access_token(
             identity=str(user_id),
             expires_delta=timedelta(hours=72)
         )
-        # Redirect to frontend with token and user ID
-        frontend_redirect_url = os.getenv('BASE_URL')  # e.g., 'http://localhost:4200'
+
+        frontend_redirect_url = os.getenv('BASE_URL')  
         redirect_url = f"{frontend_redirect_url}/auth/auth-callback?token={access_token}&userId={user_id}"
         return redirect(redirect_url, code=302)
 
     except Exception as e:
         logging.error(f"Google login error: {str(e)}")
         return jsonify({'error': 'Authentication failed'}), 500
-    
 
+# Route to start Microsoft OAuth
+@auth_routes.route('/auth/microsoft')
+def microsoft_login():
+    redirect_uri = url_for('auth.microsoft_callback', _external=True)
+    nonce = token_urlsafe(16)
+    session['oauth_nonce'] = nonce
+    logging.info(f"Redirect URI: {redirect_uri}")
+    return oauth.microsoft.authorize_redirect(redirect_uri, nonce=nonce)
+
+# Route to handle Microsoft OAuth callback
+@auth_routes.route('/auth/microsoft/callback')
+def microsoft_callback():
+    try:
+        token = oauth.microsoft.authorize_access_token()
+        nonce = session.pop('oauth_nonce', None)
+
+        if not nonce:
+            logging.error("Nonce not found in session")
+            return jsonify({'error': 'Session expired or invalid'}), 400
+
+        claims_options = {
+            'iss': {
+                'values': ['https://login.microsoftonline.com', 'login.microsoftonline.com'],
+            },
+            'aud': {
+                'values': [os.getenv('MICROSOFT_CLIENT_ID')],
+            },
+            'nonce': {
+                'values': [nonce],
+            },
+        }
+
+        user_info = oauth.microsoft.parse_id_token(token, nonce=nonce, claims_options=claims_options)
+        email = user_info.get('email')
+        name = user_info.get('name')
+        microsoft_id = user_info.get('sub')
+
+        if not email:
+            return jsonify({'error': 'Failed to retrieve email from Microsoft'}), 400
+
+        user = UserModel.find_by_email(email)
+
+        if not user:
+            user_data = {
+                'username': email.split('@')[0],
+                'email': email,
+                'name': name,
+                'microsoft_id': microsoft_id,
+            }
+            db_client = MongoDBClient.get_client()
+            db = db_client[MongoDBClient.get_db_name()]
+            result = db['users'].insert_one(user_data)
+            user_id = result.inserted_id
+        else:
+            user_id = user.id
+
+        access_token = create_access_token(
+            identity=str(user_id),
+            expires_delta=timedelta(hours=72)
+        )
+
+        frontend_redirect_url = os.getenv('BASE_URL')  
+        redirect_url = f"{frontend_redirect_url}/auth/auth-callback?token={access_token}&userId={user_id}"
+        return redirect(redirect_url, code=302)
+
+    except Exception as e:
+        logging.error(f"Microsoft login error: {str(e)}")
+        return jsonify({'error': 'Authentication failed'}), 500
 
 # Route to request password reset
 @auth_routes.post('/user/request_reset')
@@ -210,47 +250,17 @@ def request_password_reset():
         
         user = UserModel.find_by_email(email)
         if not user:
-            logging.info(f"No user found with email: {email}")
-            return jsonify({"message": "No user found with this email"}), 404
+            logging.warning("User with the provided email not found")
+            return jsonify({"error": "No user found with that email"}), 404
 
-        token = generate_reset_token(user.email)
-        base_url = os.getenv('RESET_PASSWORD_BASE_URL', 'http://localhost:3000/reset_password/')  # Default if not set
-        reset_url = f"{base_url}{token}"
-        
-        # Retrieve MAIL_DEFAULT_SENDER
-        mail_sender = current_app.config.get('MAIL_DEFAULT_SENDER')
-        
-        if not mail_sender:
-            logging.error("MAIL_DEFAULT_SENDER is not set.")
-            return jsonify({"error": "Email sender is not configured."}), 500
-        
-        # Construct the Message object
-        msg = Message(
-            subject="Password Reset Request",
-            sender=mail_sender,
-            recipients=[user.email]
-        )
-        msg.body = f"Please click on the link to reset your password: {reset_url}"
-        
+        # Generate and send reset email
+        reset_token = generate_reset_token(user.id)
+        reset_url = url_for('auth.reset_password', token=reset_token, _external=True)
+        msg = Message('Password Reset Request', recipients=[email])
+        msg.body = f"Please click the following link to reset your password: {reset_url}"
         mail.send(msg)
-        logging.info(f"Password reset email sent to {user.email}")
-            
-        return jsonify({"message": "Check your email for the reset password link"}), 200
+
+        return jsonify({"message": "Password reset email sent"}), 200
     except Exception as e:
-        logging.error(f"Exception during password reset request: {str(e)}")
-        return jsonify({"error": "An unexpected error occurred"}), 500
-
-
-# Route to reset password
-@auth_routes.post('/user/reset_password/<token>')
-def reset_password(token):
-    new_password = request.json.get('password')
-    user = verify_reset_token(token)
-    if not user:
-        return jsonify({"error": "Invalid or expired token"}), 403
-
-    new_password_hash = generate_password_hash(new_password)
-    user.update_password(user.username, new_password_hash)
-    
-    return jsonify({"message": "Password has been reset successfully"}), 200
-
+        logging.error(f"Error in password reset request: {str(e)}")
+        return jsonify({"error": "An error occurred"}), 500
