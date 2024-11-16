@@ -81,6 +81,7 @@ class AIAgent:
         vector_store_name = f"{collection_name}_vector_store"
         vector_store_collection = self.db[vector_store_name]
 
+        # Check if the vector store exists
         if db[vector_store_name].find_one({}):
             logging.info(f"Vector store '{vector_store_name}' exists. Loading existing vector store.")
             vector_store = AzureCosmosDBVectorSearch.from_connection_string(

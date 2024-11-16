@@ -4,7 +4,7 @@
 """Step 1: Import necessary modules"""
 import logging
 from flask import jsonify, Blueprint, request
-from utils.agents import generate_questions
+from agents.quiz_ai_agent import generate_questions
 
 """Step 2: Create a Blueprint object"""
 # Configure logging
@@ -16,7 +16,7 @@ quiz_ai_routes = Blueprint("quiz_ai", __name__)
 
 """Step 3: Defining routes"""
 
-@quiz_ai_routes.route('/ai/quiz', methods=['POST'])
+@quiz_ai_routes.route('/ai/quiz/<user_id>', methods=['POST'])
 def get_questions():
         """
         Endpoint to get generated questions based on a topic.
