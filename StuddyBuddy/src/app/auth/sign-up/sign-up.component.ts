@@ -7,6 +7,7 @@ import {
   AbstractControl,
   ValidationErrors,
   ValidatorFn,
+  FormControl,
 } from '@angular/forms';
 import { AuthService } from '../auth.service';
 import { Router, RouterModule } from '@angular/router';
@@ -18,6 +19,7 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatOptionModule } from '@angular/material/core';
+import { passwordMatchValidator, passwordStrengthValidator } from 'src/app/shared/constant/data.constant';
 
 @Component({
   selector: 'app-sign-up',
@@ -41,6 +43,7 @@ export class SignUpComponent implements OnInit {
   signUpForm!: FormGroup;
   errorMessage: string = '';
   hidePassword = true;
+  submitted=false
   hideConfirmPassword = true;
 
   constructor(
@@ -50,9 +53,9 @@ export class SignUpComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.signUpForm = this.fb.group(
+    this.signUpForm = new FormGroup(
       {
-        username: [
+        username: new FormControl(
           '',
           [
             Validators.required,
@@ -60,47 +63,27 @@ export class SignUpComponent implements OnInit {
             Validators.maxLength(20),
             Validators.pattern('^[a-zA-Z0-9]+$'),
           ],
-        ],
-        email: ['', [Validators.required, Validators.email]],
-        password: ['', [Validators.required, passwordStrengthValidator()]],
-        confirmPassword: ['', Validators.required],
-        name: [''],
-        age: ['', [Validators.min(18)]],
-        gender: ['', [Validators.pattern('^(male|female|other)$')]],
-        placeOfResidence: [''],
-        fieldOfStudy: [''],
+        ),
+        email: new FormControl('', [Validators.required, Validators.email]),
+        password: new FormControl('', [Validators.required, passwordStrengthValidator()]),
+        confirmPassword: new FormControl('',Validators.required),
+        name: new FormControl('',Validators.required),
+        age: new FormControl('',[Validators.min(18),Validators.required]),
+        gender: new FormControl('',Validators.required),
+        placeOfResidence: new FormControl (''),
+        fieldOfStudy: new FormControl(''),
       },
       { validators: passwordMatchValidator }
     );
   }
 
-  // Getters for form controls
-  get username(): AbstractControl {
-    return this.signUpForm.get('username')!;
-  }
-
-  get email(): AbstractControl {
-    return this.signUpForm.get('email')!;
-  }
-
-  get password(): AbstractControl {
-    return this.signUpForm.get('password')!;
-  }
-
-  get confirmPassword(): AbstractControl {
-    return this.signUpForm.get('confirmPassword')!;
-  }
-
-  get age(): AbstractControl {
-    return this.signUpForm.get('age')!;
-  }
-
-  get gender(): AbstractControl {
-    return this.signUpForm.get('gender')!;
-  }
 
   onSubmit() {
+    this.submitted = true
+    console.log(this.signUpForm.controls,'before valid value')
+
     if (this.signUpForm.valid) {
+      console.log(this.signUpForm.controls,'value')
       const formValue = { ...this.signUpForm.value };
       delete formValue.confirmPassword;
 
@@ -108,7 +91,7 @@ export class SignUpComponent implements OnInit {
         next: (response) => {
           console.log('User registered successfully', response);
           localStorage.setItem('access_token', response.access_token);
-          this.router.navigate(['/dashboard']); // Adjust the route as needed
+          this.router.navigate(['/dashboard']);
         },
         error: (error) => {
           console.error('Error registering user', error);
@@ -126,23 +109,4 @@ export class SignUpComponent implements OnInit {
   }
 }
 
-// Custom Validator for Password Strength
-function passwordStrengthValidator(): ValidatorFn {
-  return (control: AbstractControl): ValidationErrors | null => {
-    const value = control.value || '';
-    const passwordValid = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/.test(
-      value
-    );
-    return passwordValid ? null : { passwordStrength: true };
-  };
-}
 
-// Custom Validator for Password Match
-function passwordMatchValidator(form: AbstractControl): ValidationErrors | null {
-  const password = form.get('password')?.value;
-  const confirmPassword = form.get('confirmPassword')?.value;
-  if (password !== confirmPassword) {
-    return { passwordMismatch: true };
-  }
-  return null;
-}

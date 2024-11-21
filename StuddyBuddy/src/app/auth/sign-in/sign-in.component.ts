@@ -1,21 +1,16 @@
 // sign-in.component.ts
 import { Component, OnInit, NgZone } from '@angular/core';
 import {
-  FormBuilder,
   FormGroup,
   Validators,
   ReactiveFormsModule,
   AbstractControl,
+  FormControl,
 } from '@angular/forms';
 import { AuthService } from '../auth.service';
 import { RouterModule, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { MatInputModule } from '@angular/material/input';
-import { MatButtonModule } from '@angular/material/button';
-import { MatCardModule } from '@angular/material/card';
-import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { environment } from '../../../environments/environment';
+import { environment } from 'src/app/shared/constant/environment';
 @Component({
   selector: 'app-sign-in',
   standalone: true,
@@ -23,11 +18,6 @@ import { environment } from '../../../environments/environment';
     CommonModule,
     ReactiveFormsModule,
     RouterModule,
-    MatInputModule,
-    MatButtonModule,
-    MatCardModule,
-    MatIconModule,
-    MatFormFieldModule,
   ],
   templateUrl: './sign-in.component.html',
   styleUrls: ['./sign-in.component.scss'],
@@ -36,48 +26,52 @@ export class SignInComponent implements OnInit {
   signInForm!: FormGroup;
   errorMessage: string = '';
   hidePassword = true;
+  submitted = false;
+  showPassword: any = false;
 
   constructor(
-    private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
     private ngZone: NgZone
   ) {}
 
   ngOnInit() {
-    this.signInForm = this.fb.group({
-      identifier: ['', Validators.required],
-      password: ['', Validators.required],
+    this.signInForm = new FormGroup({
+      identifier: new FormControl('', [Validators.required,Validators.email]) ,
+      password: new FormControl('', Validators.required),
     });
 
-    // Listen for messages from the Google OAuth popup
-    window.addEventListener('message', this.handleMessage.bind(this), false);
+    // window.addEventListener('message', this.handleMessage.bind(this), false);
+
+    // this.authService.subjectsubscribe.subscribe((value:any)=>{
+    //   console.log(value,"value")
+    // })
   }
 
   // Getters for form controls
-  get identifier(): AbstractControl {
-    return this.signInForm.get('identifier')!;
-  }
+  // get identifier(): AbstractControl {
+  //   return this.signInForm.get('identifier')!;
+  // }
 
-  get password(): AbstractControl {
-    return this.signInForm.get('password')!;
-  }
+  // get password(): AbstractControl {
+  //   return this.signInForm.get('password')!;
+  // }
 
   onSubmit() {
-    if (this.signInForm.invalid) {
-      return;
+     this.submitted = true
+    if (this.signInForm.valid) {
+       
+      this.authService.signIn(this.signInForm.value).subscribe({
+        next: (response) => {
+          localStorage.setItem('access_token', response.access_token);
+          localStorage.setItem('user_id', response.userId);
+          this.router.navigate(['/dashboard']); // Adjust the route as needed
+        },
+        error: (error) => {
+          this.errorMessage = error.error.msg || 'Invalid identifier or password';
+        },
+      });
     }
-
-    this.authService.signIn(this.signInForm.value).subscribe({
-      next: (response) => {
-        localStorage.setItem('access_token', response.access_token);
-        localStorage.setItem('user_id', response.userId);
-        this.router.navigate(['/dashboard']); // Adjust the route as needed
-      },
-      error: (error) => {
-        this.errorMessage = error.error.msg || 'Invalid identifier or password';
-      },
-    });
   }
 
   signInWithGoogle() {
@@ -89,8 +83,12 @@ export class SignInComponent implements OnInit {
     );
   }
 
+  togglePasswordVisibility() {
+    console.log("hello")
+    this.showPassword = !this.showPassword;
+  }
+
   private handleMessage(event: MessageEvent) {
-    // Ensure the message is coming from a trusted origin
     const trustedOrigin = window.location.origin;
     if (event.origin !== trustedOrigin) {
       return;

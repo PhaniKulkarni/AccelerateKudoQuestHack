@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { BehaviorSubject, Observable, Subject } from 'rxjs';
 import { Router } from '@angular/router';
+import { environment } from '../shared/constant/environment';
 @Injectable({
   providedIn: 'root',
 })
@@ -40,4 +40,8 @@ export class AuthService {
     localStorage.removeItem('user_id');
     this.router.navigate(['/auth/sign-in']);
   }
+
+   subjectsubscribe = new Subject<number>();
+   behavioutsubscribe = new BehaviorSubject([]);
+
 }
